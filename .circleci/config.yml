@@ -1,23 +1,24 @@
-version: 2.1
+version: 2.0
 
 jobs:
-      build:
-        docker:
-            - image: node:current-alpine
-        steps:
-            - attach_workspace:
-                  at: .
-            - run:
-                  name: Production build
-                  command: |
-                      export __BUILD_VERSION="$(cat version.txt)"
-            - run:
-                  name: Version Number
-                  command: echo $(cat version.txt)
-            - run:
-                  name: Build Number
-                  command: echo $CIRCLE_BUILD_NUM
-  
+  build:
+    docker:
+      - image: circleci/ruby:2.4-node # primary container - where job steps are run
+        auth:
+          username: mydockerhub-user
+          password: $DOCKERHUB_PASSWORD  # context / project UI env-var reference
+      - image: circleci/postgres:9.4.12-alpine # services container
+        auth:
+          username: mydockerhub-user
+          password: $DOCKERHUB_PASSWORD  # context / project UI env-var reference
+    working_directory: ~/circleci-demo-workflows
+    steps:
+      - checkout
+      # Bundle install dependencies
+      - run: 
+            name: Compute version number
+            command: echo "0.0.${CIRCLE_BUILD_NUM}-${CIRCLE_SHA1:0:7}" | tee version.txt
+
   deploy:
     machine:
         enabled: true
@@ -43,8 +44,8 @@ workflows:
     jobs:
       - build
       - deploy:
-        - requires:
-          - build
+          requires:
+            - build
           filters:
             branches:
               only: sequential-branch-filter
